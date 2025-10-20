@@ -44,7 +44,7 @@ fn restart_printer(ip: &IpAddr) -> std::io::Result<()> {
 fn print_hostname_ip(ip: &IpAddr, hostname: &str) -> std::io::Result<()> {
     let mut stream = TcpStream::connect((ip.to_string().as_str(), 9100))?;
 
-    let data = format!("^XA^A0N,32,32^FO32,32^FD{}^FS^A0N,32,32^FO32,128^FD{}^FS^XZ", hostname, ip);
+    let data = format!("^XA^FO60,40^BAN,60,Y,Y,N,N^FD>:{}^FS^FO60,130^BAN,60,Y,Y,N,N^FD>:{}^FS^XZ", hostname, ip);
     stream.write_all(data.as_bytes())?;
 
     Ok(())
