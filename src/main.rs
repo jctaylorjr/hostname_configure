@@ -1,4 +1,5 @@
-use std::io::Write;
+use std::fmt::format;
+use std::io::{Read, Write};
 use std::net::TcpStream;
 use std::time::Duration;
 use std::net::{IpAddr, ToSocketAddrs};
@@ -10,22 +11,49 @@ use clap::Parser;
 #[command(version, about, long_about = None)]
 struct Args {
     #[arg(num_args = 0..)]
-    hostname: Vec<String>,
+    serials: Vec<String>,
 }
 
 fn main() -> std::io::Result<()> {
     let args = Args::parse();
-    for hostname in args.hostname {
-        match get_host_by_name(&hostname) {
+    // // Connect to the server
+    // let hostname = format!("{}:9100", args.hostname[0]);
+    // let mut stream = TcpStream::connect(hostname)?;
+    // println!("Connected to the server!");
+
+    // // Send data (as bytes)
+    // let request = b"^XA^HH^XZ";
+    // stream.write_all(request)?;
+    // println!("Sent: {}", String::from_utf8_lossy(request));
+
+    // // Wait for a response
+    // let mut buffer = [0; 2048]; // Adjust buffer size as needed
+    // let bytes_read = stream.read(&mut buffer)?;
+    // println!("Received: {}", String::from_utf8_lossy(&buffer[..bytes_read]));
+
+    for serial in args.serials {
+        let serial = serial.trim_start_matches("csc");
+        match get_host_by_name(&serial) {
             Ok(ip) => {
-                println!("{}: {}", hostname, ip);
-                let hostname = hostname.trim_start_matches("csc");
-                update_hostname(&ip, &hostname)?;
-                let hostname = format!("csc{}", hostname);
+                println!("{}: {}", serial, ip);
+                update_hostname(&ip, &serial)?;
+                let hostname = format!("csc{}", serial);
                 print_hostname_ip(&ip, &hostname)?;
                 restart_printer(&ip)?;
             },
-            Err(e) => eprintln!("Error resolving {}: {}", hostname, e),
+            Err(e) => {
+                eprintln!("Error resolving {}: {}", serial, e);
+                let hostname = format!("csc{}", serial);
+                match get_host_by_name(&hostname) {
+                    Ok(ip) => {
+                        println!("{}: {}", hostname, ip);
+                        print_hostname_ip(&ip, &hostname)?;
+                    },
+                    Err(e) => {
+                        eprintln!("Error resolving {}: {}", hostname, e)
+                    }
+                }
+            }
         }
     }
     Ok(())
