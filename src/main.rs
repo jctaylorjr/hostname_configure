@@ -1,10 +1,10 @@
+use clap::Parser;
+use std::error::Error;
 use std::fmt::format;
 use std::io::{Read, Write};
 use std::net::TcpStream;
-use std::time::Duration;
 use std::net::{IpAddr, ToSocketAddrs};
-use std::error::Error;
-use clap::Parser;
+use std::time::Duration;
 
 // https://docs.rs/clap/latest/clap/struct.Arg.html#method.value_delimiter
 #[derive(Parser, Debug)]
@@ -32,23 +32,24 @@ fn main() -> std::io::Result<()> {
     // println!("Received: {}", String::from_utf8_lossy(&buffer[..bytes_read]));
 
     for serial in args.serials {
-        let serial = serial.trim_start_matches("csc");
+        let serial = serial.trim_start_matches("CSC");
         match get_host_by_name(&serial) {
             Ok(ip) => {
                 println!("{}: {}", serial, ip);
                 update_hostname(&ip, &serial)?;
-                let hostname = format!("csc{}", serial);
+                let hostname = format!("CSC{}", serial);
+                update_other_settings(&ip)?;
                 print_hostname_ip(&ip, &hostname)?;
                 restart_printer(&ip)?;
-            },
+            }
             Err(e) => {
                 eprintln!("Error resolving {}: {}", serial, e);
-                let hostname = format!("csc{}", serial);
+                let hostname = format!("CSC{}", serial);
                 match get_host_by_name(&hostname) {
                     Ok(ip) => {
                         println!("{}: {}", hostname, ip);
                         print_hostname_ip(&ip, &hostname)?;
-                    },
+                    }
                     Err(e) => {
                         eprintln!("Error resolving {}: {}", hostname, e)
                     }
@@ -59,9 +60,21 @@ fn main() -> std::io::Result<()> {
     Ok(())
 }
 
+fn update_other_settings(ip: &IpAddr) -> std::io::Result<()> {
+    let mut stream = TcpStream::connect((ip.to_string().as_str(), 9100))?;
+    let wlan_dhcp = "! U1 setvar \"wlan.ip.protocol\" \"dhcp\"\n";
+    stream.write_all(wlan_dhcp.as_bytes())?;
+    // let preferred_network = "! U1 setvar \"ip.primary_network\" \"Wired\"\n";
+    // stream.write_all(preferred_network.as_bytes())?;
+    let darkness_width_wired_save = "~SD20^XA^PW406^NC1^JUS^XZ";
+    stream.write_all(darkness_width_wired_save.as_bytes())?;
+    println!("Updated other settings on {}", ip);
+    Ok(())
+}
+
 fn restart_printer(ip: &IpAddr) -> std::io::Result<()> {
-    println!("Restarting printer in 5 seconds...");
-    std::thread::sleep(Duration::from_secs(5));
+    println!("Restarting printer in 15 seconds...");
+    std::thread::sleep(Duration::from_secs(15));
     let mut stream = TcpStream::connect((ip.to_string().as_str(), 9100))?;
     let data = "~JR";
     stream.write_all(data.as_bytes())?;
@@ -72,7 +85,10 @@ fn restart_printer(ip: &IpAddr) -> std::io::Result<()> {
 fn print_hostname_ip(ip: &IpAddr, hostname: &str) -> std::io::Result<()> {
     let mut stream = TcpStream::connect((ip.to_string().as_str(), 9100))?;
 
-    let data = format!("^XA^FO60,40^BAN,60,Y,Y,N,N^FD>:{}^FS^FO60,130^BAN,60,Y,Y,N,N^FD>:{}^FS^XZ", hostname, ip);
+    let data = format!(
+        "~JC^XA^FO40,40^BAN,40,Y,Y,N,N^FD>:{}^FS^FO40,130^BAN,40,Y,Y,N,N^FD>:{}^FS^XZ",
+        hostname, ip
+    );
     stream.write_all(data.as_bytes())?;
 
     Ok(())
@@ -80,13 +96,13 @@ fn print_hostname_ip(ip: &IpAddr, hostname: &str) -> std::io::Result<()> {
 
 fn update_hostname(ip: &IpAddr, hostname: &str) -> std::io::Result<()> {
     let mut stream = TcpStream::connect((ip.to_string().as_str(), 9100))?;
-    
-    let hostname = hostname.trim_start_matches("csc");
 
-    let data = format!("^XA^KNcsc{}^JUS^XZ", hostname);
+    let hostname = hostname.trim_start_matches("CSC");
+
+    let data = format!("^XA^KNCSC{}^JUS^XZ", hostname);
     stream.write_all(data.as_bytes())?;
 
-    println!("Updated hostname to csc{} on {}", hostname, ip);
+    println!("Updated hostname to CSC{} on {}", hostname, ip);
     Ok(())
 }
 
